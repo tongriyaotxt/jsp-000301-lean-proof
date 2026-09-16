@@ -88,7 +88,7 @@ theorem isPrimeB_iff (p : Nat) : isPrimeB p = true ↔ PrimeP p := by
       by_cases h1 : m = 1
       · exact Or.inl h1
       · by_cases hne : m = p
-        · exact hne
+        · exact Or.inr hne
         · exfalso
           have hmp : m ≤ p := le_of_dvd (by omega) hm
           have hlt : m < p := by omega
