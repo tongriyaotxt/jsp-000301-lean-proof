@@ -96,8 +96,9 @@ theorem isPrimeB_iff (p : Nat) : isPrimeB p = true ↔ PrimeP p := by
         cases hb with
         | inl hb => omega
         | inr hb => exact hb (mod_eq_zero_of_dvd hm)
-  · intro h m hm
+  · intro h
     have hdiv := h.2
+    refine ⟨h.1, fun m hm => ?_⟩
     rw [List.mem_range] at hm
     rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq]
     by_cases hm1 : m ≤ 1
@@ -113,7 +114,6 @@ theorem powerfulB_iff (n : Nat) (hn : 0 < n) : powerfulB n = true ↔ Powerful n
   rw [List.all_eq_true]
   constructor
   · intro hall p hp hpd
-    have hp0 : 0 < p := by have := hp.1; omega
     have hpn : p ≤ n := le_of_dvd hn hpd
     have hb := hall p (by rw [List.mem_range]; omega)
     rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq] at hb
