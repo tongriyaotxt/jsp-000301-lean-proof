@@ -1,0 +1,20 @@
+name: verify
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  lean-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: leanprover/lean-action@v1
+      - name: Verify the formal proof (kernel check)
+        run: |
+          set -e
+          lean --version
+          lean Jsp000301.lean
+          echo "PROOF VERIFIED: no errors"
+      - name: Show axiom dependencies
+        run: lean Jsp000301.lean 2>&1 | grep -A3 "Axioms" || true
