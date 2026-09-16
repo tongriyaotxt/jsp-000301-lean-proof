@@ -87,15 +87,16 @@ theorem isPrimeB_iff (p : Nat) : isPrimeB p = true ↔ PrimeP p := by
     | inr hm0 =>
       by_cases h1 : m = 1
       · exact Or.inl h1
-      · right
-        by_contra hne
-        have hmp : m ≤ p := le_of_dvd (by omega) hm
-        have hlt : m < p := by omega
-        have hb := hall m (by rw [List.mem_range]; exact hlt)
-        rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq] at hb
-        cases hb with
-        | inl hb => omega
-        | inr hb => exact hb (mod_eq_zero_of_dvd hm)
+      · by_cases hne : m = p
+        · exact hne
+        · exfalso
+          have hmp : m ≤ p := le_of_dvd (by omega) hm
+          have hlt : m < p := by omega
+          have hb := hall m (by rw [List.mem_range]; exact hlt)
+          rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq] at hb
+          cases hb with
+          | inl hb => omega
+          | inr hb => exact hb (mod_eq_zero_of_dvd hm)
   · intro h
     have hdiv := h.2
     refine ⟨h.1, fun m hm => ?_⟩
