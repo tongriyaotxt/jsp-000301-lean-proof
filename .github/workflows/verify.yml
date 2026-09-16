@@ -9,12 +9,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: leanprover/lean-action@v1
+      - name: Install elan and the pinned Lean toolchain
+        run: |
+          set -e
+          curl -sSfL https://elan.lean-lang.org/elan-init.sh -o elan-init.sh
+          sh elan-init.sh -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
       - name: Verify the formal proof (kernel check)
         run: |
           set -e
-          lean --version
-          lean Jsp000301.lean
+          ~/.elan/bin/elan toolchain install "$(cat lean-toolchain)"
+          ~/.elan/bin/lean --version
+          ~/.elan/bin/lean Jsp000301.lean
           echo "PROOF VERIFIED: no errors"
-      - name: Show axiom dependencies
-        run: lean Jsp000301.lean 2>&1 | grep -A3 "Axioms" || true
