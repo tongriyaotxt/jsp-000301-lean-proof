@@ -15,8 +15,8 @@ dependency). The mathematical definitions (`PrimeP`, `Powerful`, `IsSquare`)
 are given explicitly. All finitary checks are discharged by **kernel `decide`**
 on small numbers only; the divisibility structure is proved from first
 principles via Euclid's lemma (`primeP_dvd_mul`, built on core's
-`Nat.Coprime.dvd_of_dvd_mul_left`). No `native_decide` is used anywhere, so
-`#print axioms jsp_000301` stays within the standard axioms
+`Nat.Coprime.dvd_of_dvd_mul_left`). No native-compilation tactics are used
+anywhere, so `#print axioms jsp_000301` stays within the standard axioms
 (`propext`, `Quot.sound`, `Classical.choice`).
 
 Mathematical references (solution of the original question):
