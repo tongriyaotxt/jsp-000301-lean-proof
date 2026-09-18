@@ -29,9 +29,11 @@ theorem jsp_000301 :
     12168 = 12167 + 1
 ```
 
-- 素因子枚举与平方判定通过布尔反射（reflection）归约到有穷计算，
-  由 `native_decide` 完成求值（公理依赖因此包含 `Lean.ofReduceBool`，
-  可用文件末尾的 `#print axioms jsp_000301` 核查）。
+- 全部有穷检查只对小数用**内核 `decide`**；可除性结构由第一性原理证明
+  （Euclid 引理 `primeP_dvd_mul`，基于 core 的 `Nat.Coprime.dvd_of_dvd_mul_left`；
+  非平方性由 110² < 12167 < 12168 < 111² 的界估计给出）。
+  **不使用 `native_decide`**，`#print axioms jsp_000301` 仅含标准公理
+  `propext` 与 `Quot.sound`（不含 `sorryAx` / `Lean.ofReduceBool`）。
 
 ## 构建与验证
 
