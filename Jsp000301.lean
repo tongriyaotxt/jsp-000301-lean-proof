@@ -12,8 +12,12 @@ is a pair of consecutive powerful numbers, and neither is a perfect square
 
 This file gives a machine-checked formalization in **Lean 4 core** (no Mathlib
 dependency). The mathematical definitions (`PrimeP`, `Powerful`, `IsSquare`)
-are given explicitly; the finitary checks are discharged by reflection into
-Boolean functions and verified by evaluation (`native_decide`).
+are given explicitly. All finitary checks are discharged by **kernel `decide`**
+on small numbers only; the divisibility structure is proved from first
+principles via Euclid's lemma (`primeP_dvd_mul`, built on core's
+`Nat.Coprime.dvd_of_dvd_mul_left`). No `native_decide` is used anywhere, so
+`#print axioms jsp_000301` stays within the standard axioms
+(`propext`, `Quot.sound`, `Classical.choice`).
 
 Mathematical references (solution of the original question):
 - S. W. Golomb, *Powerful numbers*, Amer. Math. Monthly 77 (1970), 848–855.
@@ -25,26 +29,14 @@ Contribution of this file: formal verification (Lean proof) of the
 counterexample. The mathematical result itself is due to the literature above.
 -/
 
-/-- Boolean primality test (trial division). -/
-def isPrimeB (p : Nat) : Bool :=
-  decide (2 ≤ p) && (List.range p).all (fun m => decide (m ≤ 1) || decide (p % m ≠ 0))
-
 /-- Mathematical primality: `p ≥ 2` with no nontrivial divisors. -/
 def PrimeP (p : Nat) : Prop := 2 ≤ p ∧ ∀ m, m ∣ p → m = 1 ∨ m = p
 
 /-- A powerful number: every prime divisor occurs with exponent at least 2. -/
 def Powerful (n : Nat) : Prop := ∀ p, PrimeP p → p ∣ n → p * p ∣ n
 
-/-- Boolean check of `Powerful n` (only divisors `p ≤ n` can matter). -/
-def powerfulB (n : Nat) : Bool :=
-  (List.range (n + 1)).all (fun p =>
-    decide (¬ (isPrimeB p = true ∧ n % p = 0)) || decide (n % (p * p) = 0))
-
 /-- Perfect square predicate. -/
 def IsSquare (n : Nat) : Prop := ∃ k, n = k * k
-
-/-- Boolean square test. -/
-def isSquareB (n : Nat) : Bool := (List.range (n + 1)).any (fun k => decide (k * k = n))
 
 /-! ## Auxiliary arithmetic lemmas (self-contained) -/
 
@@ -67,96 +59,132 @@ theorem le_of_dvd {m n : Nat} (hn : 0 < n) (h : m ∣ n) : m ≤ n := by
       rw [hk]
       exact Nat.le_mul_of_pos_right m hk0
 
-/-! ## Reflection lemmas: Boolean checks decide the mathematical predicates -/
+/-! ## Small-prime certificates (kernel `decide` on a bounded trial division) -/
 
-theorem isPrimeB_iff (p : Nat) : isPrimeB p = true ↔ PrimeP p := by
-  unfold isPrimeB PrimeP
-  rw [Bool.and_eq_true, decide_eq_true_eq, List.all_eq_true]
-  constructor
-  · intro h
-    have h2 := h.1
-    have hall := h.2
-    refine ⟨h2, fun m hm => ?_⟩
-    cases Nat.eq_zero_or_pos m with
-    | inl hm0 =>
-      subst hm0
-      cases hm with
-      | intro k hk =>
-        rw [Nat.zero_mul] at hk
-        omega
-    | inr hm0 =>
-      by_cases h1 : m = 1
-      · exact Or.inl h1
-      · by_cases hne : m = p
-        · exact Or.inr hne
-        · exfalso
-          have hmp : m ≤ p := le_of_dvd (by omega) hm
-          have hlt : m < p := by omega
-          have hb := hall m (by rw [List.mem_range]; exact hlt)
-          rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq] at hb
-          cases hb with
-          | inl hb => omega
-          | inr hb => exact hb (mod_eq_zero_of_dvd hm)
-  · intro h
-    have hdiv := h.2
-    refine ⟨h.1, fun m hm => ?_⟩
-    rw [List.mem_range] at hm
-    rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq]
-    by_cases hm1 : m ≤ 1
-    · exact Or.inl hm1
-    · right
-      intro hz
-      cases hdiv m (dvd_of_mod_eq_zero hz) with
-      | inl h => omega
-      | inr h => omega
+/-- If trial division over `range (p + 1)` certifies that the only divisors of
+`p` are `1` and `p`, then `p` is prime. The Boolean check is evaluated by the
+kernel (`decide`); for the primes used here (2, 3, 13, 23) this is trivial. -/
+theorem primeP_of_cert (p : Nat) (h2 : 2 ≤ p)
+    (h : ((List.range (p + 1)).all fun m =>
+      decide (p % m ≠ 0) || decide (m = 1) || decide (m = p)) = true) :
+    PrimeP p := by
+  refine ⟨h2, fun m hm => ?_⟩
+  have hmp : m ≤ p := le_of_dvd (by omega) hm
+  have hall := List.all_eq_true.mp h m (by rw [List.mem_range]; omega)
+  have hmod : p % m = 0 := mod_eq_zero_of_dvd hm
+  rw [Bool.or_eq_true] at hall
+  cases hall with
+  | inr hpq =>
+    exact Or.inr (decide_eq_true_eq.mp hpq)
+  | inl hab =>
+    rw [Bool.or_eq_true] at hab
+    cases hab with
+    | inl hne =>
+      exact absurd hmod (decide_eq_true_eq.mp hne)
+    | inr h1 =>
+      exact Or.inl (decide_eq_true_eq.mp h1)
 
-theorem powerfulB_iff (n : Nat) (hn : 0 < n) : powerfulB n = true ↔ Powerful n := by
-  unfold powerfulB Powerful
-  rw [List.all_eq_true]
-  constructor
-  · intro hall p hp hpd
-    have hpn : p ≤ n := le_of_dvd hn hpd
-    have hb := hall p (by rw [List.mem_range]; omega)
-    rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq] at hb
-    cases hb with
-    | inl hb =>
-      exact absurd ⟨(isPrimeB_iff p).mpr hp, mod_eq_zero_of_dvd hpd⟩ hb
-    | inr hb =>
-      exact dvd_of_mod_eq_zero hb
-  · intro hW p hp
-    rw [List.mem_range] at hp
-    rw [Bool.or_eq_true, decide_eq_true_eq, decide_eq_true_eq]
-    by_cases hcase : isPrimeB p = true ∧ n % p = 0
-    · right
-      exact mod_eq_zero_of_dvd
-        (hW p ((isPrimeB_iff p).mp hcase.1) (dvd_of_mod_eq_zero hcase.2))
-    · exact Or.inl hcase
+theorem primeP_2 : PrimeP 2 := primeP_of_cert 2 (by decide) (by decide)
+theorem primeP_3 : PrimeP 3 := primeP_of_cert 3 (by decide) (by decide)
+theorem primeP_13 : PrimeP 13 := primeP_of_cert 13 (by decide) (by decide)
+theorem primeP_23 : PrimeP 23 := primeP_of_cert 23 (by decide) (by decide)
 
-theorem isSquareB_iff (n : Nat) : isSquareB n = true ↔ IsSquare n := by
-  unfold isSquareB IsSquare
-  rw [List.any_eq_true]
-  constructor
-  · intro h
-    cases h with
-    | intro k hk =>
-      cases hk with
-      | intro _ hkk =>
-        rw [decide_eq_true_eq] at hkk
-        exact ⟨k, hkk.symm⟩
-  · intro h
-    cases h with
-    | intro k hkk =>
-      refine ⟨k, ?_, ?_⟩
-      · rw [List.mem_range]
-        cases Nat.eq_zero_or_pos k with
-        | inl hk => omega
-        | inr hk =>
-          have hle : k ≤ k * k := Nat.le_mul_of_pos_right k hk
-          omega
-      · rw [decide_eq_true_eq]
-        exact hkk.symm
+/-! ## Euclid's lemma for `PrimeP` (via core `Nat.Coprime`) -/
+
+/-- Euclid's lemma: a prime dividing a product divides one of the factors. -/
+theorem primeP_dvd_mul {p a b : Nat} (hp : PrimeP p) (h : p ∣ a * b) :
+    p ∣ a ∨ p ∣ b := by
+  have hgp : Nat.gcd p a ∣ p := Nat.gcd_dvd_left p a
+  cases hp.2 _ hgp with
+  | inl h1 =>
+    right
+    have hc : Nat.Coprime p a := h1
+    exact hc.dvd_of_dvd_mul_left h
+  | inr h2 =>
+    left
+    have hga : Nat.gcd p a ∣ a := Nat.gcd_dvd_right p a
+    rwa [h2] at hga
+
+/-- A prime dividing a positive power divides the base. -/
+theorem primeP_dvd_pow {p a : Nat} (hp : PrimeP p) {k : Nat} (hk : 1 ≤ k)
+    (h : p ∣ a ^ k) : p ∣ a := by
+  obtain ⟨j, rfl⟩ := Nat.exists_eq_add_of_le hk
+  induction j with
+  | zero =>
+    rw [Nat.add_zero] at h
+    have e : a ^ 1 = a := by rw [Nat.pow_succ, Nat.pow_zero, Nat.one_mul]
+    rwa [e] at h
+  | succ j ih =>
+    rw [show 1 + (j + 1) = (1 + j) + 1 from by omega] at h
+    rw [Nat.pow_succ] at h
+    cases primeP_dvd_mul hp h with
+    | inl hl => exact ih (by omega) hl
+    | inr hr => exact hr
+
+/-- A prime divisor of a prime `q` equals `q`. -/
+theorem primeP_eq_of_dvd_prime {p q : Nat} (hp : PrimeP p) (hq : PrimeP q)
+    (h : p ∣ q) : p = q := by
+  cases hq.2 p h with
+  | inl h1 =>
+    have hge := hp.1
+    omega
+  | inr h2 => exact h2
 
 /-! ## The counterexample -/
+
+theorem powerful_12167 : Powerful 12167 := by
+  intro p hp hpd
+  have e : (12167 : Nat) = 23 ^ 3 := by decide
+  rw [e] at hpd
+  have h23 : p ∣ 23 := primeP_dvd_pow hp (k := 3) (by decide) hpd
+  have hp23 : p = 23 := primeP_eq_of_dvd_prime hp primeP_23 h23
+  subst hp23
+  exact ⟨23, by decide⟩
+
+theorem powerful_12168 : Powerful 12168 := by
+  intro p hp hpd
+  have e : (12168 : Nat) = 2 ^ 3 * (3 ^ 2 * 13 ^ 2) := by decide
+  rw [e] at hpd
+  cases primeP_dvd_mul hp hpd with
+  | inl hl =>
+    have hd : p ∣ 2 := primeP_dvd_pow hp (k := 3) (by decide) hl
+    have hp2 : p = 2 := primeP_eq_of_dvd_prime hp primeP_2 hd
+    subst hp2
+    exact ⟨3042, by decide⟩
+  | inr hr =>
+    cases primeP_dvd_mul hp hr with
+    | inl hl3 =>
+      have hd : p ∣ 3 := primeP_dvd_pow hp (k := 2) (by decide) hl3
+      have hp3 : p = 3 := primeP_eq_of_dvd_prime hp primeP_3 hd
+      subst hp3
+      exact ⟨1352, by decide⟩
+    | inr hr13 =>
+      have hd : p ∣ 13 := primeP_dvd_pow hp (k := 2) (by decide) hr13
+      have hp13 : p = 13 := primeP_eq_of_dvd_prime hp primeP_13 hd
+      subst hp13
+      exact ⟨72, by decide⟩
+
+theorem not_isSquare_12167 : ¬ IsSquare 12167 := by
+  intro h
+  cases h with
+  | intro k hk =>
+    by_cases hle : k ≤ 110
+    · have e : k * k ≤ 110 * 110 := Nat.mul_le_mul hle hle
+      omega
+    · have hge : 111 ≤ k := by omega
+      have e : 111 * 111 ≤ k * k := Nat.mul_le_mul hge hge
+      omega
+
+theorem not_isSquare_12168 : ¬ IsSquare 12168 := by
+  intro h
+  cases h with
+  | intro k hk =>
+    by_cases hle : k ≤ 110
+    · have e : k * k ≤ 110 * 110 := Nat.mul_le_mul hle hle
+      omega
+    · have hge : 111 ≤ k := by omega
+      have e : 111 * 111 ≤ k * k := Nat.mul_le_mul hge hge
+      omega
 
 /-- **JSP-000301 (disproof, formalized).**
 `12167 = 23³` and `12168 = 2³ · 3² · 13²` are consecutive powerful numbers,
@@ -164,18 +192,12 @@ and neither is a perfect square. Hence two consecutive powerful positive
 integers need not contain a perfect square. -/
 theorem jsp_000301 :
     Powerful 12167 ∧ Powerful 12168 ∧ ¬ IsSquare 12167 ∧ ¬ IsSquare 12168 ∧
-    12168 = 12167 + 1 := by
-  refine ⟨?_, ?_, ?_, ?_, rfl⟩
-  · exact (powerfulB_iff 12167 (by decide)).mp (by native_decide)
-  · exact (powerfulB_iff 12168 (by decide)).mp (by native_decide)
-  · intro h
-    exact absurd ((isSquareB_iff 12167).mpr h) (by native_decide)
-  · intro h
-    exact absurd ((isSquareB_iff 12168).mpr h) (by native_decide)
+    12168 = 12167 + 1 :=
+  ⟨powerful_12167, powerful_12168, not_isSquare_12167, not_isSquare_12168, rfl⟩
 
 -- Sanity checks on the factorizations behind the counterexample:
-example : 12167 = 23 ^ 3 := by native_decide
-example : 12168 = 2 ^ 3 * 3 ^ 2 * 13 ^ 2 := by native_decide
-example : 110 ^ 2 = 12100 ∧ 111 ^ 2 = 12321 := by native_decide
+example : 12167 = 23 ^ 3 := by decide
+example : 12168 = 2 ^ 3 * 3 ^ 2 * 13 ^ 2 := by decide
+example : 110 ^ 2 = 12100 ∧ 111 ^ 2 = 12321 := by decide
 
 #print axioms jsp_000301
