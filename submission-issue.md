@@ -27,7 +27,7 @@ theorem jsp_000301 :
 **Pinned proof source:**
 
 - Repository: https://github.com/tongriyaotxt/jsp-000301-lean-proof
-- Pinned commit: `TO_BE_FILLED_AFTER_PUBLISH`
+- Pinned commit: `48eb3ab7e5f9d96ce0c05b57faaa5653e026f850`
 - File: `Jsp000301.lean` (self-contained, **Lean 4 core only, no Mathlib dependency**)
 - Toolchain: Lean v4.34.0 (pinned in `lean-toolchain`)
 
@@ -35,7 +35,7 @@ theorem jsp_000301 :
 
 **Verification records:**
 
-- CI kernel check (GitHub Actions, ubuntu-latest, fresh elan + Lean v4.34.0 install, `lean Jsp000301.lean`): TO_BE_FILLED_AFTER_CI
+- CI kernel check (GitHub Actions, ubuntu-latest, fresh elan + Lean v4.34.0 install, `lean Jsp000301.lean`): https://github.com/tongriyaotxt/jsp-000301-lean-proof/actions/runs/35334083704 — result: pass ("PROOF VERIFIED: no errors"; source audit and axiom audit steps also pass).
 - Axiom audit (`#print axioms jsp_000301`, printed and grep-checked in CI): **standard axioms only** — `propext`, `Quot.sound`. **No `sorryAx`, no `Lean.ofReduceBool` / `native_decide` reduction axioms, no custom axioms.** CI additionally fails the build if the source contains `native_decide`/`sorry`/`admit`/`axiom` or if the axiom printout contains `sorryAx`/`ofReduceBool`/`Lean.trustCompiler`.
 - Statement comparison notes: `Powerful n := ∀ p, PrimeP p → p ∣ n → p * p ∣ n` with `PrimeP p := 2 ≤ p ∧ ∀ m, m ∣ p → m = 1 ∨ m = p` is the standard definition of powerful numbers (cf. the record's review note: "A powerful number has exponent at least two in every prime factor"); `IsSquare n := ∃ k, n = k * k` is the standard square predicate over `Nat`. Consecutiveness is `12168 = 12167 + 1`. No extra premises; all quantifiers first-order over `Nat`.
 
