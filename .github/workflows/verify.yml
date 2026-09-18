@@ -22,3 +22,29 @@ jobs:
           ~/.elan/bin/lean --version
           ~/.elan/bin/lean Jsp000301.lean
           echo "PROOF VERIFIED: no errors"
+      - name: Source audit (no native_decide / sorry)
+        run: |
+          set -e
+          if grep -n "native_decide" Jsp000301.lean; then
+            echo "ERROR: native_decide present in source"
+            exit 1
+          fi
+          if grep -nE "\bsorry\b|\badmit\b|^axiom " Jsp000301.lean; then
+            echo "ERROR: sorry/admit/axiom present in source"
+            exit 1
+          fi
+          echo "SOURCE AUDIT PASSED: no native_decide / sorry / admit / axiom"
+      - name: Axiom audit (standard axioms only)
+        run: |
+          set -e
+          OUT=$(~/.elan/bin/lean Jsp000301.lean 2>&1 || true)
+          echo "$OUT"
+          if echo "$OUT" | grep -q "sorryAx"; then
+            echo "ERROR: sorryAx present"
+            exit 1
+          fi
+          if echo "$OUT" | grep -q "ofReduceBool\|native_decide\|Lean.trustCompiler"; then
+            echo "ERROR: non-standard reduction axioms present"
+            exit 1
+          fi
+          echo "AXIOM AUDIT PASSED: standard axioms only (propext / Quot.sound / Classical.choice)"
